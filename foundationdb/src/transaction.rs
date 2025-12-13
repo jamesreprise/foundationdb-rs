@@ -33,6 +33,9 @@ use futures::{
 #[cfg_api_versions(min = 610)]
 const METADATA_VERSION_KEY: &[u8] = b"\xff/metadataVersion";
 
+const CONFLICTING_KEYS_RANGE_START: &[u8] = b"\xff\xff/transaction/conflicting_keys/";
+const CONFLICTING_KEYS_RANGE_END: &[u8] = b"\xff\xff/transaction/conflicting_keys/\xff";
+
 /// A committed transaction.
 #[derive(Debug)]
 #[repr(transparent)]
@@ -106,6 +109,26 @@ impl TransactionCommitError {
     pub fn reset(mut self) -> Transaction {
         self.tr.reset();
         self.tr
+    }
+
+    /// Read the transaction's conflicting keys from the special keys range.
+    ///
+    /// This will fail if REPORT_CONFLICTING_KEYS has not been set on the transaction.
+    pub async fn conflicting_keys(
+        &self,
+        limit: Option<usize>,
+    ) -> Result<Vec<(Vec<u8>, Vec<u8>)>, FdbError> {
+        let range = RangeOption {
+            begin: KeySelector::first_greater_or_equal(CONFLICTING_KEYS_RANGE_START),
+            end: KeySelector::first_greater_or_equal(CONFLICTING_KEYS_RANGE_END),
+            limit,
+            ..Default::default()
+        };
+        self.tr
+            .get_ranges_keyvalues(range, false)
+            .map_ok(|kv| (kv.key().to_vec(), kv.value().to_vec()))
+            .try_collect::<Vec<(Vec<u8>, Vec<u8>)>>()
+            .await
     }
 }
 
