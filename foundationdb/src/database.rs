@@ -37,7 +37,7 @@ use futures::prelude::*;
 /// to be moved instead.
 /// This pretty handy when you don't want to see the `Database::run` closure
 /// capturing the environment.
-pub struct MaybeCommitted(bool);
+pub struct MaybeCommitted(pub bool);
 
 impl From<MaybeCommitted> for bool {
     fn from(value: MaybeCommitted) -> Self {
